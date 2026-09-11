@@ -21,7 +21,6 @@
 <style>
 :root{
   color-scheme:dark;
-  --screen:#000;
   --ink:#EDEFF2;
   --muted:#585F67;
   --line:#282C32;
@@ -29,7 +28,6 @@
   --green:#30D97E;
   --kr:"Gothic A1","Malgun Gothic",sans-serif;
   --num:"Chakra Petch",monospace;
-  --bar:calc(112px + env(safe-area-inset-bottom));
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -50,38 +48,46 @@ body{
   isolation:isolate;          /* screen 합성이 바깥으로 새지 않게 */
 }
 
-/* 내가 고른 화면 */
-#shot{
-  position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;display:none;
-}
-#pick{
-  position:absolute;left:0;right:0;top:0;bottom:var(--bar);display:flex;
-  align-items:center;justify-content:center;
-  font-size:13px;color:#2F343A;letter-spacing:.02em;
-  pointer-events:none;
-}
-#screen.hasshot #pick,#screen.used #pick{display:none}
-#screen.pickable{cursor:pointer}
-
-/* 필름 한 장 */
+/* 필름 한 장 — 화면 전체 */
 #film{
   position:absolute;inset:0;
-  opacity:0;transform:translateY(-105%);
-  transition:opacity .18s ease, transform .70s cubic-bezier(.20,.86,.26,1);
+  opacity:0;transform:translateY(-104%);
+  transition:opacity .16s ease, transform .72s cubic-bezier(.20,.86,.26,1);
   pointer-events:none;
 }
 #film.on{
   opacity:1;
-  transform:translate(var(--dx,0px),var(--dy,0px)) rotate(var(--tilt,0deg));
+  transform:rotate(var(--tilt,0deg));
 }
+/* 붙어 있는 동안 남는 유리막 */
 #film .sheen{
   position:absolute;inset:0;
-  background:linear-gradient(116deg,
-    rgba(226,238,255,.085) 0 13%,
-    rgba(226,238,255,.012) 29% 71%,
-    rgba(150,183,222,.070) 100%);
-  border:1px solid rgba(124,146,172,.34);
+  background:linear-gradient(118deg,
+    rgba(214,233,255,.155) 0 9%,
+    rgba(214,233,255,.052) 21%,
+    rgba(255,255,255,.014) 41% 61%,
+    rgba(186,214,246,.062) 81%,
+    rgba(206,229,255,.140) 100%);
+  box-shadow:inset 0 0 0 1px rgba(150,175,205,.42),
+             inset 0 0 90px rgba(120,150,185,.10);
+}
+/* 붙는 순간 화면을 한 번 훑고 지나가는 빛 */
+#film .glare{
+  position:absolute;top:-35%;bottom:-35%;left:-70%;width:62%;
+  background:linear-gradient(100deg,
+    rgba(255,255,255,0),
+    rgba(226,240,255,.17) 45%,
+    rgba(255,255,255,.22) 52%,
+    rgba(226,240,255,.17) 59%,
+    rgba(255,255,255,0));
+  opacity:0;
+}
+#film.on .glare{animation:sweep 1.1s cubic-bezier(.32,.7,.3,1) .16s 1 both}
+@keyframes sweep{
+  0%  {opacity:0;  transform:translateX(0) rotate(7deg)}
+  10% {opacity:1}
+  86% {opacity:1}
+  100%{opacity:0;  transform:translateX(330%) rotate(7deg)}
 }
 
 /* 결함은 필름이 아니라 화면 위에 얹는다.
@@ -144,13 +150,10 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   <span>성공<b id="sWin">0</b></span>
 </div>
 
-<div id="screen" class="pickable">
-  <img id="shot" alt="">
-  <div id="pick">화면을 고르세요</div>
-  <div id="film"><div class="sheen"></div></div>
+<div id="screen">
+  <div id="film"><div class="sheen"></div><div class="glare"></div></div>
   <div id="defects"></div>
 </div>
-<input type="file" id="file" accept="image/*" hidden>
 
 <div id="bar">
   <div id="verdict"></div>
@@ -173,8 +176,6 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   var sTry = document.getElementById('sTry');
   var sWaste = document.getElementById('sWaste');
   var sWin = document.getElementById('sWin');
-  var shot = document.getElementById('shot');
-  var fileInput = document.getElementById('file');
   var barEl = document.getElementById('bar');
 
   // 필름은 화면을 다 덮지만, 결함은 통계·버튼 뒤로 숨지 않게 둔다
@@ -185,16 +186,16 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   //   c=가운데 · e=가장자리 · r=아무데나
   // 스프라이트 1~26 과 한 줄씩 그대로 맞물린다
   var FAILS = [
-    ['큰 기포가 가운데 남았어요',      1,  'c'],
-    ['작은 기포가 하나 남았어요',      2,  'r'],
-    ['기포가 옆으로 길어졌어요',       3,  'r'],
-    ['기포 두 개가 붙어 있었어요',     4,  'r'],
-    ['기포 모양이 울퉁불퉁해졌어요',   5,  'r'],
-    ['작은 기포가 같이 생겼어요',      6,  'r'],
-    ['큰 기포가 둘로 갈라졌어요',      7,  'c'],
-    ['기포 안이 뿌옇게 보였어요',      8,  'c'],
-    ['기포가 한쪽으로 밀렸어요',       9,  'e'],
-    ['잔기포가 여러 개 생겼어요',      10, 'r'],
+    ['큰 기포가 가운데 남았어요',           1,  'c'],
+    ['작은 기포가 하나 남았어요',           2,  'r'],
+    ['기포가 옆으로 길어졌어요',            3,  'r'],
+    ['기포 두 개가 붙어 있었어요',          4,  'r'],
+    ['기포 모양이 울퉁불퉁해졌어요',        5,  'r'],
+    ['작은 기포가 같이 생겼어요',           6,  'r'],
+    ['큰 기포가 둘로 갈라졌어요',           7,  'c'],
+    ['기포 안이 뿌옇게 보였어요',           8,  'c'],
+    ['기포가 한쪽으로 밀렸어요',            9,  'e'],
+    ['잔기포가 여러 개 생겼어요',           10, 'r'],
     ['머리카락이 길게 들어갔어요',          11, 'r'],
     ['짧은 머리카락이 들어갔어요',          12, 'r'],
     ['속눈썹이 필름 안에 들어갔어요',       13, 'r'],
@@ -206,11 +207,11 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
     ['모래알이 필름 안에 들어갔어요',       19, 'r'],
     ['보풀이 필름 안에 들어갔어요',         20, 'r'],
     ['딱딱한 이물이 필름 안에 들어갔어요',  21, 'r'],
-    ['지문이 선명하게 찍혔어요',       22, 'c'],
-    ['지문이 희미하게 남았어요',       23, 'r'],
-    ['지문이 반쯤 번졌어요',           24, 'r'],
-    ['손자국이 세 줄 남았어요',        25, 'r'],
-    ['문지른 자국이 둥글게 남았어요',  26, 'c']
+    ['지문이 선명하게 찍혔어요',            22, 'c'],
+    ['지문이 희미하게 남았어요',            23, 'r'],
+    ['지문이 반쯤 번졌어요',                24, 'r'],
+    ['손자국이 세 줄 남았어요',             25, 'r'],
+    ['문지른 자국이 둥글게 남았어요',       26, 'c']
   ];
   var WINS = [
     '기포가 전부 빠졌어요',
@@ -303,8 +304,6 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   function apply() {
     tries++; sTry.textContent = tries;
     applied = true;
-    screenEl.classList.remove('pickable');
-    screenEl.classList.add('used');
     applyBtn.disabled = true;
     peelBtn.disabled = false;
     verdict.classList.remove('show', 'good');
@@ -325,7 +324,7 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
       }
       place(entry[1], entry[2]);
       say(entry[0], false);
-    }, 620);
+    }, 900);
   }
 
   // 떼고 끝이 아니라, 떼자마자 새 필름을 붙인다
@@ -362,49 +361,6 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
 
   applyBtn.addEventListener('click', function () { goFull(); apply(); });
   peelBtn.addEventListener('click', function () { goFull(); peel(); });
-
-  // ── 내 화면 깔기 ────────────────────────────────────────
-  // 스크린샷을 고르면 그 위에 필름이 붙는다. 안 고르면 그냥 검은 화면이다.
-  function useImage(fileOrBlob) {
-    if (!fileOrBlob) return;
-    var url = URL.createObjectURL(fileOrBlob);
-    shot.onload = function () {
-      shot.style.display = 'block';
-      screenEl.classList.add('hasshot');
-    };
-    shot.src = url;
-  }
-
-  screenEl.addEventListener('click', function () {
-    if (applied) return;            // 필름이 붙어 있을 땐 기포를 만지는 중이다
-    fileInput.click();
-  });
-  fileInput.addEventListener('change', function () {
-    if (fileInput.files && fileInput.files[0]) useImage(fileInput.files[0]);
-    fileInput.value = '';
-  });
-
-  // 붙여넣기 (PC)
-  window.addEventListener('paste', function (e) {
-    var items = (e.clipboardData || {}).items || [];
-    for (var i = 0; i < items.length; i++) {
-      if (items[i].type && items[i].type.indexOf('image') === 0) {
-        useImage(items[i].getAsFile());
-        e.preventDefault();
-        return;
-      }
-    }
-  });
-
-  // 끌어다 놓기 (PC)
-  ['dragenter', 'dragover'].forEach(function (t) {
-    screenEl.addEventListener(t, function (e) { e.preventDefault(); });
-  });
-  screenEl.addEventListener('drop', function (e) {
-    e.preventDefault();
-    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f && f.type.indexOf('image') === 0) useImage(f);
-  });
 
   // 기포를 밀어봐도 그 자리에서 미끄러지기만 한다
   var dragging = null, ox = 0, oy = 0;
