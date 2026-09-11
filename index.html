@@ -39,6 +39,20 @@ body{
   overflow:hidden;touch-action:none;
 }
 
+/* 내가 고른 화면 */
+#shot{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:none;
+}
+#pick{
+  position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;
+  font-size:14px;color:#9AA1AA;letter-spacing:.02em;
+  pointer-events:none;
+}
+#screen.hasshot #pick{display:none}
+#screen.pickable{cursor:pointer}
+
 /* 필름 한 장 */
 #film{
   position:absolute;inset:0;
@@ -126,9 +140,12 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   <span>성공<b id="sWin">0</b></span>
 </div>
 
-<div id="screen">
+<div id="screen" class="pickable">
+  <img id="shot" alt="">
+  <div id="pick">화면을 고르세요</div>
   <div id="film"><div class="sheen"></div></div>
 </div>
+<input type="file" id="file" accept="image/*" hidden>
 
 <div id="bar">
   <div id="verdict"></div>
@@ -150,6 +167,8 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   var sTry = document.getElementById('sTry');
   var sWaste = document.getElementById('sWaste');
   var sWin = document.getElementById('sWin');
+  var shot = document.getElementById('shot');
+  var fileInput = document.getElementById('file');
 
   // 스프라이트 번호
   // 1~12 기포 · 13~16 털/섬유 · 17~21 먼지 · 22~26 지문/얼룩
@@ -272,6 +291,7 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   function apply() {
     tries++; sTry.textContent = tries;
     applied = true;
+    screenEl.classList.remove('pickable');
     applyBtn.disabled = true;
     peelBtn.disabled = false;
     verdict.classList.remove('show', 'good');
@@ -304,6 +324,7 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
     film.classList.remove('on', 'haze', 'edge');
     verdict.classList.remove('show', 'good');
     applied = false;
+    screenEl.classList.add('pickable');
     wasted++; sWaste.textContent = wasted;
     applyBtn.disabled = true;
     peelBtn.disabled = true;
@@ -321,6 +342,49 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
 
   applyBtn.addEventListener('click', apply);
   peelBtn.addEventListener('click', peel);
+
+  // ── 내 화면 깔기 ────────────────────────────────────────
+  // 스크린샷을 고르면 그 위에 필름이 붙는다. 진짜 내 화면처럼 보이라고.
+  function useImage(fileOrBlob) {
+    if (!fileOrBlob) return;
+    var url = URL.createObjectURL(fileOrBlob);
+    shot.onload = function () {
+      shot.style.display = 'block';
+      screenEl.classList.add('hasshot');
+    };
+    shot.src = url;
+  }
+
+  screenEl.addEventListener('click', function () {
+    if (applied) return;            // 필름이 붙어 있을 땐 기포를 만지는 중이다
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', function () {
+    if (fileInput.files && fileInput.files[0]) useImage(fileInput.files[0]);
+    fileInput.value = '';
+  });
+
+  // 붙여넣기 (PC)
+  window.addEventListener('paste', function (e) {
+    var items = (e.clipboardData || {}).items || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image') === 0) {
+        useImage(items[i].getAsFile());
+        e.preventDefault();
+        return;
+      }
+    }
+  });
+
+  // 끌어다 놓기 (PC)
+  ['dragenter', 'dragover'].forEach(function (t) {
+    screenEl.addEventListener(t, function (e) { e.preventDefault(); });
+  });
+  screenEl.addEventListener('drop', function (e) {
+    e.preventDefault();
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f && f.type.indexOf('image') === 0) useImage(f);
+  });
 
   // 기포를 밀어봐도 그 자리에서 미끄러지기만 한다
   var dragging = null, ox = 0, oy = 0;
