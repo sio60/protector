@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>보호필름 붙이기</title>
+<meta name="description" content="화면에 보호필름을 붙입니다. 잘 안 붙습니다.">
+<meta name="theme-color" content="#F2F3F5">
+<meta name="color-scheme" content="light">
+<meta property="og:title" content="보호필름 붙이기">
+<meta property="og:description" content="화면에 보호필름을 붙입니다. 잘 안 붙습니다.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;900&family=Chakra+Petch:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --screen:#F2F3F5;
+  --ink:#16191D;
+  --muted:#858C95;
+  --line:#DCE0E5;
+  --red:#D02B20;
+  --kr:"Gothic A1","Malgun Gothic",sans-serif;
+  --num:"Chakra Petch",monospace;
+  --bar:calc(112px + env(safe-area-inset-bottom));
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--screen);color:var(--ink);
+  font-family:var(--kr);overflow:hidden;
+  -webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* ── 화면 = 필름이 붙는 곳 ───────────────────────────── */
+#screen{
+  position:fixed;left:0;right:0;top:0;bottom:var(--bar);
+  overflow:hidden;touch-action:none;
+}
+
+/* 필름 한 장 */
+#film{
+  position:absolute;inset:0;
+  opacity:0;transform:translateY(-105%);
+  transition:opacity .18s ease, transform .70s cubic-bezier(.20,.86,.26,1);
+  pointer-events:none;
+}
+#film.on{
+  opacity:1;
+  transform:translate(var(--dx,0px),var(--dy,0px)) rotate(var(--tilt,0deg));
+}
+#film .sheen{
+  position:absolute;inset:0;
+  background:linear-gradient(116deg,
+    rgba(255,255,255,.55) 0 14%,
+    rgba(255,255,255,0) 30% 72%,
+    rgba(210,224,240,.30) 100%);
+  border:1px solid rgba(168,186,206,.55);
+}
+#film.haze .sheen{
+  background:linear-gradient(116deg,rgba(255,255,255,.5) 0 14%,rgba(255,255,255,.1) 30% 70%,rgba(210,224,240,.3) 100%),
+             rgba(226,232,238,.55);
+  backdrop-filter:blur(1.4px);
+}
+#film.edge .sheen{
+  border-bottom:0;
+  box-shadow:0 -26px 30px -22px rgba(80,104,130,.55) inset;
+}
+
+.defect{
+  position:absolute;
+  pointer-events:none;
+  transform-origin:center;
+  filter:drop-shadow(0 1px 1px rgba(60,80,104,.20));
+  opacity:0;
+  transition:opacity .28s ease .12s;
+}
+.defect.in{opacity:1}
+.defect img{display:block;width:100%;height:auto}
+
+/* ── 아래 바 ──────────────────────────────────────── */
+#bar{
+  position:fixed;left:0;right:0;bottom:0;
+  padding:0 16px calc(16px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,rgba(242,243,245,0),var(--screen) 26%);
+}
+#verdict{
+  height:30px;line-height:30px;text-align:center;
+  font-size:15px;font-weight:700;color:var(--red);
+  opacity:0;transform:translateY(4px);
+  transition:opacity .22s ease, transform .22s ease;
+}
+#verdict.show{opacity:1;transform:translateY(0)}
+#verdict.good{color:#1E7A55}
+
+.controls{display:flex;gap:9px;max-width:460px;margin:8px auto 0}
+button{
+  flex:1;padding:15px 10px;border-radius:14px;
+  border:1px solid var(--line);background:#fff;color:var(--ink);
+  font-family:var(--kr);font-size:15px;font-weight:700;cursor:pointer;
+  transition:transform .1s ease,opacity .2s ease;
+}
+button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.35;cursor:default}
+button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
+
+#stats{
+  position:fixed;top:calc(12px + env(safe-area-inset-top));left:0;right:0;
+  display:flex;justify-content:center;gap:20px;
+  font-size:11px;color:var(--muted);letter-spacing:.04em;
+  pointer-events:none;z-index:5;
+}
+#stats b{font-family:var(--num);font-size:13px;color:#4A525C;font-weight:600;
+  font-variant-numeric:tabular-nums;margin-left:5px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="stats">
+  <span>시도<b id="sTry">0</b></span>
+  <span>버린 필름<b id="sWaste">0</b></span>
+  <span>성공<b id="sWin">0</b></span>
+</div>
+
+<div id="screen">
+  <div id="film"><div class="sheen"></div></div>
+</div>
+
+<div id="bar">
+  <div id="verdict"></div>
+  <div class="controls">
+    <button class="primary" id="apply">붙이기</button>
+    <button id="peel" disabled>다시 붙이기</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var screenEl = document.getElementById('screen');
+  var film = document.getElementById('film');
+  var verdict = document.getElementById('verdict');
+  var applyBtn = document.getElementById('apply');
+  var peelBtn = document.getElementById('peel');
+  var sTry = document.getElementById('sTry');
+  var sWaste = document.getElementById('sWaste');
+  var sWin = document.getElementById('sWin');
+
+  // 스프라이트 번호
+  // 1~12 기포 · 13~16 털/섬유 · 17~21 먼지 · 22~26 지문/얼룩
+  var BUBBLE = [1,2,3,4,5,6,7,8,9,10,11,12];
+  var HAIR   = [13,14,15,16];
+  var DUST   = [17,18,19,20,21];
+  var MARK   = [22,23,24,25,26];
+
+  // 실패: [문구, 쓸 스프라이트, 모드]
+  //  pos  c=가운데 / e=가장자리 / r=아무데나
+  var FAILS = [
+    ['기포 하나가 가운데 남았어요', [1], 'c'],
+    ['작은 기포가 끝까지 남았어요', [2], 'r'],
+    ['기포가 옆으로 길어졌어요', [3], 'r'],
+    ['기포 두 개가 붙어버렸어요', [4], 'r'],
+    ['기포 모양이 이상해졌어요', [5], 'r'],
+    ['작은 기포가 세 개 생겼어요', [12], 'r'],
+    ['큰 기포가 둘로 갈라졌어요', [7], 'r'],
+    ['기포를 밀었더니 퍼졌어요', [10], 'r'],
+    ['작은 기포가 옆에 하나 생겼어요', [8], 'r'],
+    ['기포가 빠지기 직전에 멈췄어요', [11], 'e'],
+    ['머리카락이 길게 들어갔어요', [13], 'r'],
+    ['머리카락 끝만 들어갔어요', [14], 'e'],
+    ['머리카락이 가운데를 지나가요', [13], 'c'],
+    ['속눈썹 한 가닥이 들어갔어요', [15], 'r'],
+    ['속눈썹이 화면에 붙어 있어요', [15], 'c'],
+    ['실밥 하나가 같이 붙었어요', [16], 'r'],
+    ['흰 실밥이 안쪽에 들어갔어요', [20], 'r'],
+    ['검은 먼지가 하나 들어갔어요', [17], 'r'],
+    ['흰 먼지가 하나 남았어요', [18], 'r'],
+    ['먼지 한 톨이 가운데 있어요', [19], 'c'],
+    ['작은 알갱이가 같이 붙었어요', [19], 'r'],
+    ['먼지가 기포 안에 들어갔어요', [1,19], 'c'],
+    ['보풀이 안쪽에 끼었어요', [20], 'r'],
+    ['섬유 한 가닥이 눌렸어요', [21], 'r'],
+    ['지문이 안쪽에 찍혔어요', [22], 'r'],
+    ['지문이 가운데 남았어요', [22], 'c'],
+    ['닦은 자국이 그대로 남았어요', [23], 'r'],
+    ['손가락 자국이 세 줄 남았어요', [25], 'r'],
+    ['유분 자국이 동그랗게 남았어요', [26], 'r'],
+    ['화면을 켜니까 지문이 보여요', [24], 'c'],
+    ['다 붙이고 먼지를 발견했어요', [18], 'r'],
+    ['거의 다 됐는데 털이 보여요', [14], 'r'],
+    ['하나 빼니까 하나 더 생겼어요', [8], 'r'],
+    ['마지막 하나가 안 빠졌어요', [2], 'e'],
+    ['작은 점 하나가 계속 보여요', [19], 'c'],
+    ['조금만 기울이면 먼지가 보여요', [17], 'r'],
+    ['검은 화면에서 지문이 보여요', [23], 'r'],
+    ['흰 화면에서 먼지가 보여요', [18], 'r']
+  ];
+  var WINS = ['깨끗하게 붙었어요','기포가 없어요','한 번에 붙었어요','아무 데도 안 떴어요'];
+
+  var tries = 0, wasted = 0, wins = 0;
+  var applied = false;
+  var nodes = [];
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function pick(a) { return a[(Math.random() * a.length) | 0]; }
+
+  // 미리 받아둔다. 안 그러면 판정 순간에 빈 화면이 보인다.
+  (function preload() {
+    for (var i = 1; i <= 26; i++) {
+      var im = new Image();
+      im.src = 'sprites/' + (i < 10 ? '0' + i : i) + '.png';
+    }
+  })();
+
+  function place(id, pos) {
+    var w = screenEl.clientWidth, h = screenEl.clientHeight;
+    var base = Math.min(w, h);
+    var el = document.createElement('div');
+    el.className = 'defect';
+
+    // 먼지·실밥은 작게, 기포·지문은 크게
+    var size;
+    if (id >= 17 && id <= 21) size = base * rand(0.035, 0.075);
+    else if (id >= 13 && id <= 16) size = base * rand(0.14, 0.26);
+    else if (id >= 22) size = base * rand(0.12, 0.20);
+    else size = base * rand(0.10, 0.20);
+
+    var x, y;
+    if (pos === 'c') {
+      x = w / 2 + rand(-w * 0.10, w * 0.10);
+      y = h / 2 + rand(-h * 0.10, h * 0.10);
+    } else if (pos === 'e') {
+      var side = (Math.random() * 4) | 0;
+      var m = base * 0.10;
+      if (side === 0) { x = rand(m, w - m); y = rand(m, h * 0.18); }
+      else if (side === 1) { x = rand(m, w - m); y = rand(h * 0.82, h - m); }
+      else if (side === 2) { x = rand(m, w * 0.18); y = rand(m, h - m); }
+      else { x = rand(w * 0.82, w - m); y = rand(m, h - m); }
+    } else {
+      x = rand(w * 0.14, w * 0.86);
+      y = rand(h * 0.14, h * 0.86);
+    }
+
+    el.style.width = size + 'px';
+    el.style.left = (x - size / 2) + 'px';
+    el.style.top = (y - size / 2) + 'px';
+    el.style.transform = 'rotate(' + rand(0, 360).toFixed(1) + 'deg)';
+
+    var img = document.createElement('img');
+    img.src = 'sprites/' + (id < 10 ? '0' + id : id) + '.png';
+    img.alt = '';
+    el.appendChild(img);
+    film.appendChild(el);
+    nodes.push(el);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { el.classList.add('in'); });
+    });
+  }
+
+  function clearDefects() {
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]);
+    }
+    nodes = [];
+  }
+
+  function apply() {
+    tries++; sTry.textContent = tries;
+    applied = true;
+    applyBtn.disabled = true;
+    peelBtn.disabled = false;
+    verdict.classList.remove('show', 'good');
+    clearDefects();
+    film.classList.remove('haze', 'edge');
+
+    var win = Math.random() < 0.05;
+    var entry = win ? null : pick(FAILS);
+    var mode = win ? '' : entry[2];
+
+    // 필름이 내려온다
+    // 붙일 때마다 아주 살짝 비뚤어진다
+    film.style.setProperty('--tilt', rand(-0.35, 0.35).toFixed(2) + 'deg');
+    film.classList.add('on');
+
+    setTimeout(function () {
+      if (win) {
+        wins++; sWin.textContent = wins;
+        say(pick(WINS), true);
+        return;
+      }
+      var ids = entry[1], pos = entry[2];
+      for (var i = 0; i < ids.length; i++) place(ids[i], pos);
+      say(entry[0], false);
+    }, 620);
+  }
+
+  // 떼고 끝이 아니라, 떼자마자 새 필름을 붙인다
+  function peel() {
+    film.classList.remove('on', 'haze', 'edge');
+    verdict.classList.remove('show', 'good');
+    applied = false;
+    wasted++; sWaste.textContent = wasted;
+    applyBtn.disabled = true;
+    peelBtn.disabled = true;
+    setTimeout(function () {
+      clearDefects();
+      apply();
+    }, 340);
+  }
+
+  function say(t, good) {
+    verdict.textContent = t;
+    verdict.classList.toggle('good', !!good);
+    verdict.classList.add('show');
+  }
+
+  applyBtn.addEventListener('click', apply);
+  peelBtn.addEventListener('click', peel);
+
+  // 기포를 밀어봐도 그 자리에서 미끄러지기만 한다
+  var dragging = null, ox = 0, oy = 0;
+  function pt(e) { var p = e.touches ? e.touches[0] : e; return { x: p.clientX, y: p.clientY }; }
+  screenEl.addEventListener('pointerdown', function (e) {
+    if (!applied) return;
+    var best = null, bd = 1e9;
+    var p = pt(e);
+    for (var i = 0; i < nodes.length; i++) {
+      var r = nodes[i].getBoundingClientRect();
+      var d = Math.hypot(r.left + r.width / 2 - p.x, r.top + r.height / 2 - p.y);
+      if (d < Math.max(r.width, r.height) * 0.7 && d < bd) { bd = d; best = nodes[i]; }
+    }
+    if (!best) return;
+    dragging = best;
+    var rr = best.getBoundingClientRect();
+    ox = p.x - (rr.left + rr.width / 2);
+    oy = p.y - (rr.top + rr.height / 2);
+    screenEl.setPointerCapture(e.pointerId);
+  });
+  screenEl.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    var p = pt(e);
+    var w = dragging.offsetWidth, h = dragging.offsetHeight;
+    var nx = p.x - ox, ny = p.y - oy;
+    // 가장자리 밖으로는 못 나간다. 아무리 밀어도.
+    var m = 10;
+    nx = Math.max(m + w / 2, Math.min(screenEl.clientWidth - m - w / 2, nx));
+    ny = Math.max(m + h / 2, Math.min(screenEl.clientHeight - m - h / 2, ny));
+    dragging.style.left = (nx - w / 2) + 'px';
+    dragging.style.top = (ny - h / 2) + 'px';
+  });
+  function endDrag() { dragging = null; }
+  screenEl.addEventListener('pointerup', endDrag);
+  screenEl.addEventListener('pointercancel', endDrag);
+})();
+</script>
+</body>
+</html>
