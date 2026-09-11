@@ -5,21 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>보호필름 붙이기</title>
 <meta name="description" content="화면에 보호필름을 붙입니다. 잘 안 붙습니다.">
-<meta name="theme-color" content="#F2F3F5">
-<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <meta property="og:title" content="보호필름 붙이기">
 <meta property="og:description" content="화면에 보호필름을 붙입니다. 잘 안 붙습니다.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="보호필름">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;900&family=Chakra+Petch:wght@500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  color-scheme:light;
-  --screen:#F2F3F5;
-  --ink:#16191D;
-  --muted:#858C95;
-  --line:#DCE0E5;
-  --red:#D02B20;
+  color-scheme:dark;
+  --screen:#000;
+  --ink:#EDEFF2;
+  --muted:#585F67;
+  --line:#282C32;
+  --red:#FF453A;
+  --green:#30D97E;
   --kr:"Gothic A1","Malgun Gothic",sans-serif;
   --num:"Chakra Petch",monospace;
   --bar:calc(112px + env(safe-area-inset-bottom));
@@ -27,16 +34,20 @@
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
-  margin:0;background:var(--screen);color:var(--ink);
+  margin:0;background:#000;color:var(--ink);
   font-family:var(--kr);overflow:hidden;
   -webkit-user-select:none;user-select:none;
   -webkit-tap-highlight-color:transparent;
 }
 
 /* ── 화면 = 필름이 붙는 곳 ───────────────────────────── */
+/* 보호필름은 원래 검은 화면에 놓고 붙인다. 티가 잘 보이라고. */
+/* 필름은 화면 끝에서 끝까지 덮는다. 버튼은 그 위에 얹힌다. */
 #screen{
-  position:fixed;left:0;right:0;top:0;bottom:var(--bar);
+  position:fixed;inset:0;
   overflow:hidden;touch-action:none;
+  background:#000;
+  isolation:isolate;          /* screen 합성이 바깥으로 새지 않게 */
 }
 
 /* 내가 고른 화면 */
@@ -45,12 +56,12 @@ body{
   object-fit:cover;display:none;
 }
 #pick{
-  position:absolute;inset:0;display:flex;
+  position:absolute;left:0;right:0;top:0;bottom:var(--bar);display:flex;
   align-items:center;justify-content:center;
-  font-size:14px;color:#9AA1AA;letter-spacing:.02em;
+  font-size:13px;color:#2F343A;letter-spacing:.02em;
   pointer-events:none;
 }
-#screen.hasshot #pick{display:none}
+#screen.hasshot #pick,#screen.used #pick{display:none}
 #screen.pickable{cursor:pointer}
 
 /* 필름 한 장 */
@@ -67,26 +78,19 @@ body{
 #film .sheen{
   position:absolute;inset:0;
   background:linear-gradient(116deg,
-    rgba(255,255,255,.55) 0 14%,
-    rgba(255,255,255,0) 30% 72%,
-    rgba(210,224,240,.30) 100%);
-  border:1px solid rgba(168,186,206,.55);
-}
-#film.haze .sheen{
-  background:linear-gradient(116deg,rgba(255,255,255,.5) 0 14%,rgba(255,255,255,.1) 30% 70%,rgba(210,224,240,.3) 100%),
-             rgba(226,232,238,.55);
-  backdrop-filter:blur(1.4px);
-}
-#film.edge .sheen{
-  border-bottom:0;
-  box-shadow:0 -26px 30px -22px rgba(80,104,130,.55) inset;
+    rgba(226,238,255,.085) 0 13%,
+    rgba(226,238,255,.012) 29% 71%,
+    rgba(150,183,222,.070) 100%);
+  border:1px solid rgba(124,146,172,.34);
 }
 
+/* 결함은 필름이 아니라 화면 위에 얹는다.
+   검은 배경 스프라이트라 screen 합성으로 검정만 지워진다. */
+#defects{position:absolute;inset:0;pointer-events:none}
 .defect{
   position:absolute;
-  pointer-events:none;
   transform-origin:center;
-  filter:drop-shadow(0 1px 1px rgba(60,80,104,.20));
+  mix-blend-mode:screen;
   opacity:0;
   transition:opacity .28s ease .12s;
 }
@@ -95,9 +99,9 @@ body{
 
 /* ── 아래 바 ──────────────────────────────────────── */
 #bar{
-  position:fixed;left:0;right:0;bottom:0;
+  position:fixed;left:0;right:0;bottom:0;z-index:6;
   padding:0 16px calc(16px + env(safe-area-inset-bottom));
-  background:linear-gradient(180deg,rgba(242,243,245,0),var(--screen) 26%);
+  background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.88) 34%,#000 62%);
 }
 #verdict{
   height:30px;line-height:30px;text-align:center;
@@ -106,18 +110,18 @@ body{
   transition:opacity .22s ease, transform .22s ease;
 }
 #verdict.show{opacity:1;transform:translateY(0)}
-#verdict.good{color:#1E7A55}
+#verdict.good{color:var(--green)}
 
 .controls{display:flex;gap:9px;max-width:460px;margin:8px auto 0}
 button{
   flex:1;padding:15px 10px;border-radius:14px;
-  border:1px solid var(--line);background:#fff;color:var(--ink);
+  border:1px solid var(--line);background:#15181C;color:var(--ink);
   font-family:var(--kr);font-size:15px;font-weight:700;cursor:pointer;
   transition:transform .1s ease,opacity .2s ease;
 }
-button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+button.primary{background:#EDEFF2;color:#0A0C0E;border-color:#EDEFF2}
 button:active:not(:disabled){transform:translateY(1px)}
-button:disabled{opacity:.35;cursor:default}
+button:disabled{opacity:.3;cursor:default}
 button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
 
 #stats{
@@ -126,7 +130,7 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   font-size:11px;color:var(--muted);letter-spacing:.04em;
   pointer-events:none;z-index:5;
 }
-#stats b{font-family:var(--num);font-size:13px;color:#4A525C;font-weight:600;
+#stats b{font-family:var(--num);font-size:13px;color:#9AA1AA;font-weight:600;
   font-variant-numeric:tabular-nums;margin-left:5px}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -144,6 +148,7 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   <img id="shot" alt="">
   <div id="pick">화면을 고르세요</div>
   <div id="film"><div class="sheen"></div></div>
+  <div id="defects"></div>
 </div>
 <input type="file" id="file" accept="image/*" hidden>
 
@@ -161,6 +166,7 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
 
   var screenEl = document.getElementById('screen');
   var film = document.getElementById('film');
+  var layer = document.getElementById('defects');
   var verdict = document.getElementById('verdict');
   var applyBtn = document.getElementById('apply');
   var peelBtn = document.getElementById('peel');
@@ -169,57 +175,65 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
   var sWin = document.getElementById('sWin');
   var shot = document.getElementById('shot');
   var fileInput = document.getElementById('file');
+  var barEl = document.getElementById('bar');
 
-  // 스프라이트 번호
-  // 1~12 기포 · 13~16 털/섬유 · 17~21 먼지 · 22~26 지문/얼룩
-  var BUBBLE = [1,2,3,4,5,6,7,8,9,10,11,12];
-  var HAIR   = [13,14,15,16];
-  var DUST   = [17,18,19,20,21];
-  var MARK   = [22,23,24,25,26];
+  // 필름은 화면을 다 덮지만, 결함은 통계·버튼 뒤로 숨지 않게 둔다
+  function topLimit() { return 34; }
+  function botLimit() { return screenEl.clientHeight - barEl.offsetHeight; }
 
-  // 실패: [문구, 쓸 스프라이트, 모드]
-  //  pos  c=가운데 / e=가장자리 / r=아무데나
+  // 실패: [문구, 스프라이트 번호, 자리]
+  //   c=가운데 · e=가장자리 · r=아무데나
+  // 스프라이트 1~26 과 한 줄씩 그대로 맞물린다
   var FAILS = [
-    ['기포 하나가 가운데 남았어요', [1], 'c'],
-    ['작은 기포가 끝까지 남았어요', [2], 'r'],
-    ['기포가 옆으로 길어졌어요', [3], 'r'],
-    ['기포 두 개가 붙어버렸어요', [4], 'r'],
-    ['기포 모양이 이상해졌어요', [5], 'r'],
-    ['작은 기포가 세 개 생겼어요', [12], 'r'],
-    ['큰 기포가 둘로 갈라졌어요', [7], 'r'],
-    ['기포를 밀었더니 퍼졌어요', [10], 'r'],
-    ['작은 기포가 옆에 하나 생겼어요', [8], 'r'],
-    ['기포가 빠지기 직전에 멈췄어요', [11], 'e'],
-    ['머리카락이 길게 들어갔어요', [13], 'r'],
-    ['머리카락 끝만 들어갔어요', [14], 'e'],
-    ['머리카락이 가운데를 지나가요', [13], 'c'],
-    ['속눈썹 한 가닥이 들어갔어요', [15], 'r'],
-    ['속눈썹이 화면에 붙어 있어요', [15], 'c'],
-    ['실밥 하나가 같이 붙었어요', [16], 'r'],
-    ['흰 실밥이 안쪽에 들어갔어요', [20], 'r'],
-    ['검은 먼지가 하나 들어갔어요', [17], 'r'],
-    ['흰 먼지가 하나 남았어요', [18], 'r'],
-    ['먼지 한 톨이 가운데 있어요', [19], 'c'],
-    ['작은 알갱이가 같이 붙었어요', [19], 'r'],
-    ['먼지가 기포 안에 들어갔어요', [1,19], 'c'],
-    ['보풀이 안쪽에 끼었어요', [20], 'r'],
-    ['섬유 한 가닥이 눌렸어요', [21], 'r'],
-    ['지문이 안쪽에 찍혔어요', [22], 'r'],
-    ['지문이 가운데 남았어요', [22], 'c'],
-    ['닦은 자국이 그대로 남았어요', [23], 'r'],
-    ['손가락 자국이 세 줄 남았어요', [25], 'r'],
-    ['유분 자국이 동그랗게 남았어요', [26], 'r'],
-    ['화면을 켜니까 지문이 보여요', [24], 'c'],
-    ['다 붙이고 먼지를 발견했어요', [18], 'r'],
-    ['거의 다 됐는데 털이 보여요', [14], 'r'],
-    ['하나 빼니까 하나 더 생겼어요', [8], 'r'],
-    ['마지막 하나가 안 빠졌어요', [2], 'e'],
-    ['작은 점 하나가 계속 보여요', [19], 'c'],
-    ['조금만 기울이면 먼지가 보여요', [17], 'r'],
-    ['검은 화면에서 지문이 보여요', [23], 'r'],
-    ['흰 화면에서 먼지가 보여요', [18], 'r']
+    ['큰 기포가 가운데 남았어요',      1,  'c'],
+    ['작은 기포가 하나 남았어요',      2,  'r'],
+    ['기포가 옆으로 길어졌어요',       3,  'r'],
+    ['기포 두 개가 붙어 있었어요',     4,  'r'],
+    ['기포 모양이 울퉁불퉁해졌어요',   5,  'r'],
+    ['작은 기포가 같이 생겼어요',      6,  'r'],
+    ['큰 기포가 둘로 갈라졌어요',      7,  'c'],
+    ['기포 안이 뿌옇게 보였어요',      8,  'c'],
+    ['기포가 한쪽으로 밀렸어요',       9,  'e'],
+    ['잔기포가 여러 개 생겼어요',      10, 'r'],
+    ['머리카락이 길게 들어갔어요',     11, 'r'],
+    ['짧은 머리카락이 남았어요',       12, 'r'],
+    ['속눈썹이 안쪽에 눌렸어요',       13, 'r'],
+    ['머리카락 둘레가 떴어요',         14, 'r'],
+    ['실밥 둘레에 기포가 생겼어요',    15, 'r'],
+    ['색실밥이 같이 붙었어요',         16, 'r'],
+    ['검은 먼지가 눌려 있었어요',      17, 'r'],
+    ['흰 먼지가 안쪽에 남았어요',      18, 'r'],
+    ['모래알이 같이 들어갔어요',       19, 'r'],
+    ['보풀이 한곳에 뭉쳤어요',         20, 'r'],
+    ['딱딱한 이물이 눌렸어요',         21, 'r'],
+    ['지문이 선명하게 찍혔어요',       22, 'c'],
+    ['지문이 희미하게 남았어요',       23, 'r'],
+    ['지문이 반쯤 번졌어요',           24, 'r'],
+    ['손자국이 세 줄 남았어요',        25, 'r'],
+    ['문지른 자국이 둥글게 남았어요',  26, 'c']
   ];
-  var WINS = ['깨끗하게 붙었어요','기포가 없어요','한 번에 붙었어요','아무 데도 안 떴어요'];
+  var WINS = [
+    '기포가 전부 빠졌어요',
+    '먼지가 아무것도 없어요',
+    '지문이 남지 않았어요',
+    '가장자리까지 붙었어요',
+    '이번에는 그냥 붙었어요',
+    '찾아볼 게 없었어요'
+  ];
+
+  // 스프라이트 가로/세로 비율
+  var AR = [0,
+    1.060, 1.053, 2.228, 1.742, 1.315, 1.090, 1.173, 1.107, 2.371, 1.560,
+    1.341, 1.362, 1.364, 1.145, 1.211, 0.920,
+    0.931, 0.961, 1.020, 1.128, 0.969,
+    0.715, 0.693, 0.734, 1.089, 0.974];
+
+  // 긴 변 길이. 화면의 짧은 변을 1로 본다.
+  var SIZE = [null,
+    [.42,.54], [.15,.21], [.30,.42], [.30,.40], [.30,.40], [.30,.40], [.30,.40], [.32,.42], [.32,.44], [.34,.46],
+    [.34,.48], [.24,.34], [.26,.36], [.26,.36], [.26,.36], [.20,.28],
+    [.09,.14], [.08,.13], [.09,.14], [.22,.30], [.09,.14],
+    [.34,.46], [.34,.46], [.34,.46], [.36,.48], [.34,.46]];
 
   var tries = 0, wasted = 0, wins = 0;
   var applied = false;
@@ -227,58 +241,56 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
 
   function rand(a, b) { return a + Math.random() * (b - a); }
   function pick(a) { return a[(Math.random() * a.length) | 0]; }
+  function src(id) { return 'sprites/' + (id < 10 ? '0' + id : id) + '.png'; }
 
   // 미리 받아둔다. 안 그러면 판정 순간에 빈 화면이 보인다.
   (function preload() {
-    for (var i = 1; i <= 26; i++) {
-      var im = new Image();
-      im.src = 'sprites/' + (i < 10 ? '0' + i : i) + '.png';
-    }
+    for (var i = 1; i <= 26; i++) { var im = new Image(); im.src = src(i); }
   })();
 
   function place(id, pos) {
-    var w = screenEl.clientWidth, h = screenEl.clientHeight;
+    var w = screenEl.clientWidth;
+    var t = topLimit(), b = botLimit(), h = b - t;
     var base = Math.min(w, h);
     var el = document.createElement('div');
     el.className = 'defect';
 
-    // 먼지·실밥은 작게, 기포·지문은 크게
-    var size;
-    if (id >= 17 && id <= 21) size = base * rand(0.035, 0.075);
-    else if (id >= 13 && id <= 16) size = base * rand(0.14, 0.26);
-    else if (id >= 22) size = base * rand(0.12, 0.20);
-    else size = base * rand(0.10, 0.20);
+    var ar = AR[id];
+    var long = base * rand(SIZE[id][0], SIZE[id][1]);
+    var size = ar >= 1 ? long : long * ar;   // 세로로 긴 놈은 폭을 줄인다
+    var boxH = size / ar;
 
     var x, y;
+    var mx = size / 2 + 6, my = boxH / 2 + 6;
     if (pos === 'c') {
       x = w / 2 + rand(-w * 0.10, w * 0.10);
-      y = h / 2 + rand(-h * 0.10, h * 0.10);
+      y = t + h / 2 + rand(-h * 0.10, h * 0.10);
     } else if (pos === 'e') {
       var side = (Math.random() * 4) | 0;
-      var m = base * 0.10;
-      if (side === 0) { x = rand(m, w - m); y = rand(m, h * 0.18); }
-      else if (side === 1) { x = rand(m, w - m); y = rand(h * 0.82, h - m); }
-      else if (side === 2) { x = rand(m, w * 0.18); y = rand(m, h - m); }
-      else { x = rand(w * 0.82, w - m); y = rand(m, h - m); }
+      if (side === 0) { x = rand(mx, w - mx); y = t + rand(my, h * 0.22); }
+      else if (side === 1) { x = rand(mx, w - mx); y = t + rand(h * 0.78, h - my); }
+      else if (side === 2) { x = rand(mx, w * 0.24); y = t + rand(my, h - my); }
+      else { x = rand(w * 0.76, w - mx); y = t + rand(my, h - my); }
     } else {
-      x = rand(w * 0.14, w * 0.86);
-      y = rand(h * 0.14, h * 0.86);
+      x = rand(w * 0.18, w * 0.82);
+      y = t + rand(h * 0.16, h * 0.84);
     }
+    x = Math.max(mx, Math.min(w - mx, x));
+    y = Math.max(t + my, Math.min(b - my, y));
 
     el.style.width = size + 'px';
     el.style.left = (x - size / 2) + 'px';
-    el.style.top = (y - size / 2) + 'px';
+    el.style.top = (y - boxH / 2) + 'px';
     el.style.transform = 'rotate(' + rand(0, 360).toFixed(1) + 'deg)';
 
     var img = document.createElement('img');
-    img.src = 'sprites/' + (id < 10 ? '0' + id : id) + '.png';
+    img.src = src(id);
     img.alt = '';
     el.appendChild(img);
-    film.appendChild(el);
+    layer.appendChild(el);
     nodes.push(el);
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () { el.classList.add('in'); });
-    });
+    void el.offsetWidth;        // 리플로를 한 번 강제해야 페이드가 먹는다
+    el.classList.add('in');
   }
 
   function clearDefects() {
@@ -292,17 +304,15 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
     tries++; sTry.textContent = tries;
     applied = true;
     screenEl.classList.remove('pickable');
+    screenEl.classList.add('used');
     applyBtn.disabled = true;
     peelBtn.disabled = false;
     verdict.classList.remove('show', 'good');
     clearDefects();
-    film.classList.remove('haze', 'edge');
 
     var win = Math.random() < 0.05;
     var entry = win ? null : pick(FAILS);
-    var mode = win ? '' : entry[2];
 
-    // 필름이 내려온다
     // 붙일 때마다 아주 살짝 비뚤어진다
     film.style.setProperty('--tilt', rand(-0.35, 0.35).toFixed(2) + 'deg');
     film.classList.add('on');
@@ -313,18 +323,16 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
         say(pick(WINS), true);
         return;
       }
-      var ids = entry[1], pos = entry[2];
-      for (var i = 0; i < ids.length; i++) place(ids[i], pos);
+      place(entry[1], entry[2]);
       say(entry[0], false);
     }, 620);
   }
 
   // 떼고 끝이 아니라, 떼자마자 새 필름을 붙인다
   function peel() {
-    film.classList.remove('on', 'haze', 'edge');
+    film.classList.remove('on');
     verdict.classList.remove('show', 'good');
     applied = false;
-    screenEl.classList.add('pickable');
     wasted++; sWaste.textContent = wasted;
     applyBtn.disabled = true;
     peelBtn.disabled = true;
@@ -340,11 +348,23 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
     verdict.classList.add('show');
   }
 
-  applyBtn.addEventListener('click', apply);
-  peelBtn.addEventListener('click', peel);
+  // 주소창까지 걷어낸다. 진짜 내 화면처럼 보이라고.
+  function goFull() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) return;
+    var el = document.documentElement;
+    var f = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!f) return;
+    try {
+      var r = f.call(el, { navigationUI: 'hide' });
+      if (r && r.catch) r.catch(function () {});
+    } catch (e) {}
+  }
+
+  applyBtn.addEventListener('click', function () { goFull(); apply(); });
+  peelBtn.addEventListener('click', function () { goFull(); peel(); });
 
   // ── 내 화면 깔기 ────────────────────────────────────────
-  // 스크린샷을 고르면 그 위에 필름이 붙는다. 진짜 내 화면처럼 보이라고.
+  // 스크린샷을 고르면 그 위에 필름이 붙는다. 안 고르면 그냥 검은 화면이다.
   function useImage(fileOrBlob) {
     if (!fileOrBlob) return;
     var url = URL.createObjectURL(fileOrBlob);
@@ -411,9 +431,9 @@ button:focus-visible{outline:3px solid #3B7DD8;outline-offset:2px}
     var w = dragging.offsetWidth, h = dragging.offsetHeight;
     var nx = p.x - ox, ny = p.y - oy;
     // 가장자리 밖으로는 못 나간다. 아무리 밀어도.
-    var m = 10;
+    var m = 6;
     nx = Math.max(m + w / 2, Math.min(screenEl.clientWidth - m - w / 2, nx));
-    ny = Math.max(m + h / 2, Math.min(screenEl.clientHeight - m - h / 2, ny));
+    ny = Math.max(topLimit() + m + h / 2, Math.min(botLimit() - m - h / 2, ny));
     dragging.style.left = (nx - w / 2) + 'px';
     dragging.style.top = (ny - h / 2) + 'px';
   });
